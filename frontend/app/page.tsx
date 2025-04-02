@@ -5,21 +5,30 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { fetchData } from "@/utils/api"; 
+import AIModelForm from "@/components/ui/aimodels"; // Adjust the path if necessary
 
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"chat" | "ai-models" | "workflows">("chat")
   const [message, setMessage] = useState("");
   const [response, setResponse] = useState('');
+  const [showForm, setShowForm] = useState(false);
+
+  const handleSave = (data: any) => {
+    console.log("Saved model: ", data);
+    // Implement your saving logic here
+    setShowForm(false);
+  };
+
+  const handleCancel = () => {
+    setShowForm(false);
+  };
 
   const handleChat = async () => {
     if (!message.trim()) {
       return; // Prevent sending if input is empty
     }
-    
-    // Send the message typed in the input field
     const data = await fetchData('get_response', 'POST', { msg: message });
-    
     if (data) {
       setResponse(data.response); // Set the response in state
       setMessage("");
@@ -322,7 +331,7 @@ export default function Home() {
                   <span className="font-medium text-lg">AI Models Configuration</span>
                 </div>
 
-                <Button className="bg-[#6C47FF] hover:bg-[#5A3CD7]">Add Model</Button>
+                <Button className="bg-[#6C47FF] hover:bg-[#5A3CD7]" onClick={() => setShowForm(true)} >Add Model</Button>
               </div>
 
               <div className="flex-1 flex flex-col items-center justify-center text-center">
@@ -356,6 +365,14 @@ export default function Home() {
               </div>
             </div>
           )}
+          {/* Modal overlay for the form */}
+          {showForm && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+              <div className="bg-white p-6 rounded-lg w-full max-w-md">
+                <AIModelForm onSave={handleSave} onCancel={handleCancel} />
+              </div>
+            </div>
+            )}
 
           {activeTab === "workflows" && (
             <div className="bg-white rounded-lg border border-gray-200 p-6 flex-1 flex flex-col">
@@ -411,6 +428,7 @@ export default function Home() {
           )}
         </div>
       </div>
+      
     </div>
   )
 }
