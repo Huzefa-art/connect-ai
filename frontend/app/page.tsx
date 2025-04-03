@@ -6,34 +6,59 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { fetchData } from "@/utils/api"; 
 import AIModelForm from "@/components/ui/aimodels"; // Adjust the path if necessary
-
+import WorkflowBuilder from '@/components/ui/WorkflowBuilder'; 
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"chat" | "ai-models" | "workflows">("chat")
+  const [aiModels, setAiModels] = useState<
+  { id: string; modelName: string; provider: string; apiKey: string; promptTemplate: string }[]>([]);
+
   const [message, setMessage] = useState("");
-  const [response, setResponse] = useState('');
+  // const [response, setResponse] = useState('');
   const [showForm, setShowForm] = useState(false);
+  // const [messages, setMessages] = useState<{ sender: "user" | "bot"; text: string }[]>([]);
+  const [messages, setMessages] = useState<{ sender: "user" | "bot" | "system"; text: string }[]>([
+    {
+      sender: "system",
+      text: "Hello! You can explore and test the platform here. Please note that it is still in development, and its current purpose is to showcase our MVP and the core idea of what we aim to build. Many features are not yet functional, as this is just a preview of what our app will include in the future."
+    }
+  ]);
+  
 
-  const handleSave = (data: any) => {
-    console.log("Saved model: ", data);
-    // Implement your saving logic here
-    setShowForm(false);
+  const handleChat = async () => {
+    if (!message.trim()) return; // Prevent sending if input is empty
+  
+    // Add user's message to chat history
+    setMessages((prevMessages) => [...prevMessages, { sender: "user", text: message }]);
+  
+    const data = await fetchData("get_response", "POST", { msg: message });
+  
+    if (data) {
+      setMessages((prevMessages) => [...prevMessages, { sender: "bot", text: data.response }]);
+      setMessage(""); // Clear input after sending
+    }
   };
-
+  
+  const handleSave = (data: { modelName: string; provider: string; apiKey: string; promptTemplate: string }) => {
+    const newModel = { ...data, id: Date.now().toString() }; // Add a unique ID
+    setAiModels((prevModels) => [...prevModels, newModel]);
+    setShowForm(false); 
+  };
+  
   const handleCancel = () => {
     setShowForm(false);
   };
 
-  const handleChat = async () => {
-    if (!message.trim()) {
-      return; // Prevent sending if input is empty
-    }
-    const data = await fetchData('get_response', 'POST', { msg: message });
-    if (data) {
-      setResponse(data.response); // Set the response in state
-      setMessage("");
-    }
-  };
+  // const handleChat = async () => {
+  //   if (!message.trim()) {
+  //     return; // Prevent sending if input is empty
+  //   }
+  //   const data = await fetchData('get_response', 'POST', { msg: message });
+  //   if (data) {
+  //     setResponse(data.response); // Set the response in state
+  //     setMessage("");
+  //   }
+  // };
 
   return (
     <div className="flex h-screen bg-white">
@@ -228,8 +253,18 @@ export default function Home() {
                   </Button>
                 </div>
               </div>
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[70vh]">
+              {messages.map((msg, index) => (
+                <div key={index} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`p-3 rounded-lg max-w-[80%] md:max-w-[60%] lg:max-w-[50%] break-words ${msg.sender === "user" ? "bg-blue-500 text-white" : "bg-gray-200 text-black"}`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+            </div>
 
-              <div className="flex-1 overflow-auto">
+              {/* <div className="flex-1 overflow-auto">
+                
                 <div className="flex gap-3 mb-4">
                   <div className="w-8 h-8 bg-[#6C47FF] rounded flex items-center justify-center flex-shrink-0 mt-1">
                     <svg
@@ -251,7 +286,7 @@ export default function Home() {
                       <path d="M15 13v2" />
                       <path d="M9 13v2" />
                     </svg>
-                  </div>
+                  </div> 
                   <div className="bg-gray-100 rounded-lg p-4 max-w-3xl">
                     <p className="text-gray-800">
                       Hello! You can explore and test the platform here. Please note that it is still in development,
@@ -261,7 +296,7 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
-              </div>
+              </div> */}
 
               <div className="mt-4 border-t pt-4">
                 <div className="flex gap-2">
@@ -276,7 +311,6 @@ export default function Home() {
                   }
                 }}
               />
-
                   <Button className="bg-[#6C47FF] hover:bg-[#5A3CD7] h-10 w-10 p-0" onClick={handleChat}>
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -334,80 +368,69 @@ export default function Home() {
                 <Button className="bg-[#6C47FF] hover:bg-[#5A3CD7]" onClick={() => setShowForm(true)} >Add Model</Button>
               </div>
 
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <div className="w-12 h-12 mb-4 text-gray-300">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="48"
-                    height="48"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="lucide lucide-cpu"
-                  >
-                    <rect x="4" y="4" width="16" height="16" rx="2" />
-                    <rect x="9" y="9" width="6" height="6" />
-                    <path d="M15 2v2" />
-                    <path d="M15 20v2" />
-                    <path d="M2 15h2" />
-                    <path d="M2 9h2" />
-                    <path d="M20 15h2" />
-                    <path d="M20 9h2" />
-                    <path d="M9 2v2" />
-                    <path d="M9 20v2" />
-                  </svg>
+            {aiModels.length > 0 ? (
+                <div className="space-y-4">
+                  {aiModels.map((model, index) => (
+                    <div key={index} className="p-4 border rounded-lg bg-gray-100">
+                      <h3 className="font-bold text-lg">{model.modelName}</h3>
+                      <p className="text-sm text-gray-600">Provider: {model.provider}</p>
+                      <p className="text-sm text-gray-600">API Key: {model.apiKey}</p>
+                      <p className="text-sm text-gray-600">Prompt Template: {model.promptTemplate}</p>
+                    </div>
+                  ))}
                 </div>
-                <h3 className="text-lg font-medium text-gray-800 mb-2">No AI Models Configured</h3>
-                <p className="text-gray-500">Add your first AI model to start building workflows</p>
-              </div>
-            </div>
-          )}
-          {/* Modal overlay for the form */}
-          {showForm && (
-            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-              <div className="bg-white p-6 rounded-lg w-full max-w-md">
-                <AIModelForm onSave={handleSave} onCancel={handleCancel} />
-              </div>
-            </div>
-            )}
-
-          {activeTab === "workflows" && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6 flex-1 flex flex-col">
-              <div className="flex justify-between items-center mb-16">
-                <div className="flex items-center gap-2">
-                  <div className="text-[#6C47FF]">
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
+                  <div className="w-12 h-12 mb-4 text-gray-300">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
+                      width="48"
+                      height="48"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="2"
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      className="lucide lucide-workflow"
+                      className="lucide lucide-cpu"
                     >
-                      <rect width="8" height="8" x="3" y="3" rx="2" />
-                      <path d="M7 11v4a2 2 0 0 0 2 2h4" />
-                      <rect width="8" height="8" x="13" y="13" rx="2" />
+                      <rect x="4" y="4" width="16" height="16" rx="2" />
+                      <rect x="9" y="9" width="6" height="6" />
+                      <path d="M15 2v2" />
+                      <path d="M15 20v2" />
+                      <path d="M2 15h2" />
+                      <path d="M2 9h2" />
+                      <path d="M20 15h2" />
+                      <path d="M20 9h2" />
+                      <path d="M9 2v2" />
+                      <path d="M9 20v2" />
                     </svg>
                   </div>
-                  <span className="font-medium text-lg">Workflow Builder</span>
+                  <h3 className="text-lg font-medium text-gray-800 mb-2">No AI Models Configured</h3>
+                  <p className="text-gray-500">Add your first AI model to start building workflows</p>
                 </div>
+              )}
+            </div>
+          )}
+          {/* Modal overlay for the form */}
+          {showForm && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+            <div className="bg-white p-6 rounded-lg w-full max-w-md">
+              <AIModelForm onSave={handleSave} onCancel={() => setShowForm(false)} />
+            </div>
+          </div>
+            )}
 
-                <Button className="bg-[#6C47FF] hover:bg-[#5A3CD7]">Add AI Models First</Button>
-              </div>
-
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
-                <div className="w-12 h-12 mb-4 text-gray-300">
+        {/* Inside your workflows tab section: */}
+        {/* {activeTab === "workflows" && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 flex-1 flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2">
+                <div className="text-[#6C47FF]">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    width="48"
-                    height="48"
+                    width="20"
+                    height="20"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -421,11 +444,20 @@ export default function Home() {
                     <rect width="8" height="8" x="13" y="13" rx="2" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-medium text-gray-800 mb-2">No Workflows Created</h3>
-                <p className="text-gray-500">Create a workflow to chain multiple AI models together</p>
+                <span className="font-medium text-lg">Workflow Builder</span>
               </div>
+              <Button className="bg-[#6C47FF] hover:bg-[#5A3CD7]">Add AI Models First</Button>
             </div>
-          )}
+
+            <div className="flex-1">
+              Pass the saved aiModels state into the WorkflowBuilder
+            </div>
+          </div>
+        )} */}
+        {activeTab === "workflows" && (
+          <WorkflowBuilder aiModels={aiModels} />
+        )}
+
         </div>
       </div>
       
