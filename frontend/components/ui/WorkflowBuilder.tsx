@@ -24,9 +24,7 @@ interface AIModel {
 interface WorkflowFlowProps {
   aiModels: AIModel[];
 }
-
-// Custom Node Component with handles on all four sides (each handle has a unique id)
-const CustomNode = ({ id, data }: { id: string; data: { label: string } }) => {
+const CustomNode = ({ id, data }: { id: string; data: any }) => {
   const updateNodeInternals = useUpdateNodeInternals();
 
   useEffect(() => {
@@ -35,57 +33,74 @@ const CustomNode = ({ id, data }: { id: string; data: { label: string } }) => {
 
   const handleStyle = { background: '#6C47FF', width: '12px', height: '12px' };
 
+  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    data.setData((prev: any) =>
+      prev.map((node: any) =>
+        node.id === id
+          ? { ...node, data: { ...node.data, systemPrompt: e.target.value } }
+          : node
+      )
+    );
+  };
+
+  const isUserNode = data.label === 'User';
+
   return (
     <div
       style={{
-        padding: '10px',
+        padding: '12px',
         border: '1px solid #6C47FF',
-        borderRadius: '5px',
+        borderRadius: '8px',
         background: '#fff',
+        minWidth: '220px',
         textAlign: 'center',
-        minWidth: '150px',
-        position: 'relative',
+        fontFamily: 'sans-serif',
       }}
     >
-      {/* Top handle for incoming connections */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        id="target-top"
-        isConnectable={true}
-        style={handleStyle}
-      />
-      {/* Right handle for outgoing connections */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="source-right"
-        isConnectable={true}
-        style={handleStyle}
-      />
-      {/* Bottom handle for outgoing connections */}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="source-bottom"
-        isConnectable={true}
-        style={handleStyle}
-      />
-      {/* Left handle for incoming connections */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="target-left"
-        isConnectable={true}
-        style={handleStyle}
-      />
-      <div>
-        <h3 style={{ color: '#6C47FF', margin: 0 }}>{data.label}</h3>
-      </div>
+      {/* Connection Handles */}
+      <Handle type="target" position={Position.Top} style={handleStyle} />
+      <Handle type="source" position={Position.Right} style={handleStyle} />
+      <Handle type="source" position={Position.Bottom} style={handleStyle} />
+      <Handle type="target" position={Position.Left} style={handleStyle} />
+
+      {/* Node Title */}
+      <h3 style={{ color: '#6C47FF', margin: '0 0 8px', fontWeight: 'bold', fontSize: '16px' }}>
+        {data.label}
+      </h3>
+
+      {/* Editable Prompt (if not User) */}
+      {!isUserNode && (
+        <div style={{ textAlign: 'left' }}>
+          <label
+            style={{
+              fontSize: '12px',
+              fontWeight: 600,
+              color: '#333',
+              display: 'block',
+              marginBottom: '4px',
+            }}
+          >
+            System Prompt:
+          </label>
+          <textarea
+            value={data.systemPrompt}
+            onChange={handlePromptChange}
+            placeholder="Set system prompt"
+            rows={3}
+            style={{
+              width: '100%',
+              fontSize: '12px',
+              padding: '6px',
+              borderRadius: '4px',
+              border: '1px solid #ccc',
+              resize: 'none',
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };
-
 const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -99,10 +114,14 @@ const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels }) => {
       position: { x: 50, y: 50 },
     };
 
-    const modelNodes = aiModels.map((model, index) => ({
+  const modelNodes = aiModels.map((model, index) => ({
       id: model.id,
       type: 'custom',
-      data: { label: model.modelName },
+      data: {
+        label: model.modelName,
+        systemPrompt: model.promptTemplate,
+        setData: setNodes,
+      },
       position: { x: index * 250 + 50, y: 200 },
     }));
 
@@ -127,31 +146,42 @@ const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels }) => {
 
   // Function to call the API with the current workflow configuration
   const handleSetWorkflow = async () => {
-    // Create a workflow configuration array based on current edges
     const workflowConfig = edges.map((edge) => ({
       from: edge.source,
       to: edge.target,
     }));
-
+  
+    const nodesConfig = nodes.map((node) => ({
+      id: node.id,
+      name: node.data.label,
+      systemPrompt: node.data.systemPrompt || null,
+    }));
+  
+    const payload = {
+      workflow: workflowConfig,
+      nodes: nodesConfig,
+    };
+  
     try {
       const response = await fetch('/api/set-workflow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workflow: workflowConfig }),
+        body: JSON.stringify(payload),
       });
-
+  
       if (!response.ok) {
-        throw new Error('Failed to set workflow');
+        throw new Error('Failed to send workflow data');
       }
+  
       const result = await response.json();
-      console.log('Workflow set successfully:', result);
-      alert('Workflow set successfully!');
+      console.log('Workflow saved:', result);
+      alert('Workflow configuration sent successfully!');
     } catch (error) {
-      console.error('Error setting workflow:', error);
-      alert('Error setting workflow');
+      console.error('Error sending workflow:', error);
+      alert('Failed to send workflow configuration.');
     }
   };
-
+    
   const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
 
   return (
