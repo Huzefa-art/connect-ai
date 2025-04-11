@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input"
 import { fetchData } from "@/utils/api"; 
 import AIModelForm from "@/components/ui/aimodels"; // Adjust the path if necessary
 import WorkflowBuilder from '@/components/ui/WorkflowBuilder'; 
+import ConnectPlatform from "@/components/ui/ConnectPlatform"
+import FileUploadButton from "@/components/ui/FileUpload";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"chat" | "ai-models" | "workflows">("chat")
@@ -16,6 +18,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   // const [response, setResponse] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [showConnectPlatform, setConnectPlatform] = useState(false);
   // const [messages, setMessages] = useState<{ sender: "user" | "bot"; text: string }[]>([]);
   const [messages, setMessages] = useState<{ sender: "user" | "bot" | "system"; text: string }[]>([
     {
@@ -43,6 +46,10 @@ export default function Home() {
     const newModel = { ...data, id: Date.now().toString() }; // Add a unique ID
     setAiModels((prevModels) => [...prevModels, newModel]);
     setShowForm(false); 
+  };
+  const handleconnectSave = (data: { platform: string; api_key: string; webhook_url: string }) => {
+    console.log("Received data:", data);
+    // Process the data (e.g., send it to your server or update state)
   };
   
   const handleCancel = () => {
@@ -212,8 +219,10 @@ export default function Home() {
                     </svg>
                     Invite User
                   </Button>
-
-                  <Button variant="outline" size="sm" className="text-gray-800 border-gray-300 h-9">
+                  <div>
+                  <FileUploadButton />
+                </div>
+                  {/* <Button variant="outline" size="sm" className="text-gray-800 border-gray-300 h-9">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="16"
@@ -231,9 +240,9 @@ export default function Home() {
                     </svg>
                     Choose File
                     <span className="ml-1 text-gray-500 text-xs">No fi...osen</span>
-                  </Button>
+                  </Button> */}
 
-                  <Button variant="outline" size="sm" className="text-gray-800 border-gray-300 h-9">
+                  <Button variant="outline" size="sm" className="text-gray-800 border-gray-300 h-9" onClick={() => setConnectPlatform(true)}>
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       width="16"
@@ -254,6 +263,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[70vh]">
+              {/* message area */}
               {messages.map((msg, index) => (
                 <div key={index} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`p-3 rounded-lg max-w-[80%] md:max-w-[60%] lg:max-w-[50%] break-words ${msg.sender === "user" ? "bg-blue-500 text-white" : "bg-gray-200 text-black"}`}>
@@ -262,6 +272,15 @@ export default function Home() {
                 </div>
               ))}
             </div>
+            {/* connectplatform */}
+            {showConnectPlatform && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+              <div className="bg-white p-6 rounded-lg w-full max-w-md">
+                <ConnectPlatform onSave={handleconnectSave} onCancel={() => setConnectPlatform(false)} />
+              </div>
+            </div>
+              )}
+
 
               {/* <div className="flex-1 overflow-auto">
                 
