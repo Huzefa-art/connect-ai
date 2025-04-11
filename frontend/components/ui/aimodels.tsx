@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { fetchData } from "@/utils/api";
 
 interface AIModelFormProps {
   onSave: (data: any) => void;
@@ -22,9 +23,24 @@ const AIModelForm: React.FC<AIModelFormProps> = ({ onSave, onCancel, initialData
   const [apiKey, setApiKey] = useState(initialData?.apiKey || "");
   const [promptTemplate, setPromptTemplate] = useState(initialData?.promptTemplate || "");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({ modelName, provider, apiKey, promptTemplate });
+
+    const data = {
+      modelName,
+      provider,
+      apiKey,
+      promptTemplate,
+    };
+
+    const result = await fetchData("api/v1/save-ai-model", "POST", data);
+
+    if (result) {
+      onSave(data);  
+      // alert("AI Model saved successfully!");
+    } else {
+      alert("Failed to save AI Model.");
+    }
   };
 
   return (

@@ -34,7 +34,7 @@ export default function Home() {
     // Add user's message to chat history
     setMessages((prevMessages) => [...prevMessages, { sender: "user", text: message }]);
   
-    const data = await fetchData("get_response", "POST", { msg: message });
+    const data = await fetchData("api/v1/get_response", "POST", { msg: message });
   
     if (data) {
       setMessages((prevMessages) => [...prevMessages, { sender: "bot", text: data.response }]);
@@ -47,6 +47,7 @@ export default function Home() {
     setAiModels((prevModels) => [...prevModels, newModel]);
     setShowForm(false); 
   };
+
   const handleconnectSave = (data: { platform: string; api_key: string; webhook_url: string }) => {
     console.log("Received data:", data);
     // Process the data (e.g., send it to your server or update state)

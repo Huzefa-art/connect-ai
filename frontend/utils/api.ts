@@ -19,3 +19,22 @@ export const fetchData = async (endpoint: string, method = "GET", body?: any) =>
     return null;  
   }
 };
+
+export const fetchFormData = async (endpoint: string, formData: FormData) => {
+  try {
+    const response = await fetch(`http://127.0.0.1:8000/${endpoint}`, {
+      method: "POST",
+      body: formData, // Don't set headers — browser will do it correctly
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Upload failed: ${response.status} - ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error in fetchFormData:", error);
+    return null;
+  }
+};

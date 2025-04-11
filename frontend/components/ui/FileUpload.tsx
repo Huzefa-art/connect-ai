@@ -1,5 +1,6 @@
 import React, { useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { fetchFormData } from "@/utils/api";
 
 const FileUploadButton: React.FC = () => {
   // Reference for the hidden file input element
@@ -31,18 +32,13 @@ const FileUploadButton: React.FC = () => {
     formData.append("file", file);
 
     try {
-      // Replace '/upload' with your actual file upload API endpoint
-      const response = await fetch("/upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (response.ok) {
-        console.log("File upload successful");
-        // Further processing if needed, e.g. update UI or clear selected file
+      const result = await fetchFormData("api/v1/upload", formData);
+      if (result) {
+        console.log("File upload successful:", result);
       } else {
         console.error("File upload failed");
       }
-    } catch (error) {
+          } catch (error) {
       console.error("Error uploading file:", error);
     }
   };

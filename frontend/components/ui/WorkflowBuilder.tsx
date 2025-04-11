@@ -14,6 +14,7 @@ import ReactFlow, {
   useUpdateNodeInternals,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import { fetchData } from "@/utils/api";
 
 interface AIModel {
   id: string;
@@ -143,14 +144,14 @@ const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels }) => {
       ),
     [setEdges]
   );
+  const idToNameMap = new Map(nodes.map((node) => [node.id, node.data.label]));
 
   // Function to call the API with the current workflow configuration
   const handleSetWorkflow = async () => {
     const workflowConfig = edges.map((edge) => ({
-      from: edge.source,
-      to: edge.target,
+      from_: idToNameMap.get(edge.source),  // Get the name using the source ID
+      to: idToNameMap.get(edge.target),     // Get the name using the target ID
     }));
-  
     const nodesConfig = nodes.map((node) => ({
       id: node.id,
       name: node.data.label,
@@ -162,26 +163,22 @@ const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels }) => {
       nodes: nodesConfig,
     };
   
+
     try {
-      const response = await fetch('/api/set-workflow', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      // Make the API call with the payload
+      const result = await fetchData("api/v1/set-workflow", "POST", payload);
   
-      if (!response.ok) {
-        throw new Error('Failed to send workflow data');
+      if (result) {
+        console.log("Workflow saved:", result);
+        alert("Workflow configuration sent successfully!");
+      } else {
+        alert("Failed to send workflow configuration.");
       }
-  
-      const result = await response.json();
-      console.log('Workflow saved:', result);
-      alert('Workflow configuration sent successfully!');
     } catch (error) {
-      console.error('Error sending workflow:', error);
-      alert('Failed to send workflow configuration.');
+      console.error("Error sending workflow:", error);
+      alert("Failed to send workflow configuration.");
     }
   };
-    
   const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
 
   return (
