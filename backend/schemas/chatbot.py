@@ -6,12 +6,6 @@ from typing import List, Optional
 class chatbotdata(BaseModel):
     msg: str
 
-# connect platform data
-class PlatformData(BaseModel):
-    platform: str
-    api_key: str
-    webhook_url: HttpUrl  
-
 
 class WorkflowEdge(BaseModel):
     from_: str = Field(..., alias='from')  
@@ -35,3 +29,8 @@ class AIModel(BaseModel):
     provider: str
     apiKey: str
     promptTemplate: str
+
+class ConntectPlatformData(BaseModel):
+    platform: str
+    api_key: str
+    webhook_url: str

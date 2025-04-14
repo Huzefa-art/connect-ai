@@ -14,18 +14,46 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"chat" | "ai-models" | "workflows">("chat")
   const [aiModels, setAiModels] = useState<
   { id: string; modelName: string; provider: string; apiKey: string; promptTemplate: string }[]>([]);
+  const [platforms, setPlatforms] = useState<{ id: string; platformName: string }[]>([]);
+  const [docs, setDocs] = useState<{ id: string; docName: string }[]>([]);
 
   const [message, setMessage] = useState("");
+
   // const [response, setResponse] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showConnectPlatform, setConnectPlatform] = useState(false);
+
   // const [messages, setMessages] = useState<{ sender: "user" | "bot"; text: string }[]>([]);
   const [messages, setMessages] = useState<{ sender: "user" | "bot" | "system"; text: string }[]>([
     {
       sender: "system",
       text: "Hello! You can explore and test the platform here. Please note that it is still in development, and its current purpose is to showcase our MVP and the core idea of what we aim to build. Many features are not yet functional, as this is just a preview of what our app will include in the future."
     }
-  ]);
+  ]);  
+
+  const handleDocumentSave = (doc: { id: string; docName: string }) => {
+    setDocs((prevDocs) => [...prevDocs, doc]);
+  };
+  
+  const handleconnectSave = (data: { platform: string; api_key: string; webhook_url: string }) => {
+    const PLATFORMS = [
+      { id: "whatsapp", name: "WhatsApp" },
+      { id: "telegram", name: "Telegram" },
+      { id: "discord", name: "Discord" },
+      { id: "slack", name: "Slack" },
+    ];
+  
+    const platformName = PLATFORMS.find(p => p.id === data.platform)?.name || data.platform;
+  
+    const newPlatform = {
+      id: data.platform,
+      platformName,
+    };
+  
+    setPlatforms(prev => [...prev, newPlatform]);
+    setConnectPlatform(false);
+  };
+  
   
 
   const handleChat = async () => {
@@ -48,11 +76,6 @@ export default function Home() {
     setShowForm(false); 
   };
 
-  const handleconnectSave = (data: { platform: string; api_key: string; webhook_url: string }) => {
-    console.log("Received data:", data);
-    // Process the data (e.g., send it to your server or update state)
-  };
-  
   const handleCancel = () => {
     setShowForm(false);
   };
@@ -221,8 +244,8 @@ export default function Home() {
                     Invite User
                   </Button>
                   <div>
-                  <FileUploadButton />
-                </div>
+                  <FileUploadButton onFileUploaded={handleDocumentSave} />
+                  </div>
                   {/* <Button variant="outline" size="sm" className="text-gray-800 border-gray-300 h-9">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -277,10 +300,11 @@ export default function Home() {
             {showConnectPlatform && (
             <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
               <div className="bg-white p-6 rounded-lg w-full max-w-md">
-                <ConnectPlatform onSave={handleconnectSave} onCancel={() => setConnectPlatform(false)} />
+              <ConnectPlatform onSave={handleconnectSave} onCancel={() => setConnectPlatform(false)} />
               </div>
             </div>
-              )}
+)}
+
 
 
               {/* <div className="flex-1 overflow-auto">
@@ -475,7 +499,7 @@ export default function Home() {
           </div>
         )} */}
         {activeTab === "workflows" && (
-          <WorkflowBuilder aiModels={aiModels} />
+          <WorkflowBuilder aiModels={aiModels} platforms={platforms} uploadedDocs={docs}/>
         )}
 
         </div>

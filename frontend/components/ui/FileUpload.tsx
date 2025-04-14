@@ -2,22 +2,21 @@ import React, { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { fetchFormData } from "@/utils/api";
 
-const FileUploadButton: React.FC = () => {
-  // Reference for the hidden file input element
+interface FileUploadButtonProps {
+  onFileUploaded: (doc: { id: string; docName: string }) => void;
+}
+
+const FileUploadButton: React.FC<FileUploadButtonProps> = ({ onFileUploaded }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Trigger file dialog when button is clicked
   const handleButtonClick = () => {
     fileInputRef.current?.click();
   };
 
-  // Handle file selection and upload process
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return; // No file selected
+    if (!file) return;
 
-    // Check if the file type is allowed (PDF or DOCX)
-    // Note: DOCX MIME type can vary across browsers
     const allowedTypes = [
       "application/pdf",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -27,7 +26,6 @@ const FileUploadButton: React.FC = () => {
       return;
     }
 
-    // Create a FormData object for file upload
     const formData = new FormData();
     formData.append("file", file);
 
@@ -35,10 +33,13 @@ const FileUploadButton: React.FC = () => {
       const result = await fetchFormData("api/v1/upload", formData);
       if (result) {
         console.log("File upload successful:", result);
+        // Call the onFileUploaded callback with document details.
+        // Adjust property names if your API returns different keys.
+        onFileUploaded({ id: result.id, docName: result.filename });
       } else {
         console.error("File upload failed");
       }
-          } catch (error) {
+    } catch (error) {
       console.error("Error uploading file:", error);
     }
   };
@@ -49,7 +50,7 @@ const FileUploadButton: React.FC = () => {
         variant="outline" 
         size="sm" 
         className="text-gray-800 border-gray-300 h-9"
-        onClick={handleButtonClick} // Trigger file input when button is clicked
+        onClick={handleButtonClick}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -69,8 +70,6 @@ const FileUploadButton: React.FC = () => {
         Choose File
         <span className="ml-1 text-gray-500 text-xs">No file chosen</span>
       </Button>
-
-      {/* Hidden file input to trigger file selection */}
       <input 
         type="file" 
         ref={fileInputRef} 

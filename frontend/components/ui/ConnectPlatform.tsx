@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X } from "lucide-react";
+import { fetchData } from "@/utils/api";
 
 const PLATFORMS = [
   { id: "whatsapp", name: "WhatsApp" },
@@ -17,19 +18,36 @@ interface ConnectPlatformProps {
   onCancel: () => void;
 }
 
-const ConnectPlatform: React.FC<ConnectPlatformProps> = ({ onSave, onCancel }) => {
+const ConnectPlatform: React.FC<ConnectPlatformProps> = ({ onSave, onCancel}) => {
   const [formData, setFormData] = React.useState({
     platform: "",
     api_key: "",
     webhook_url: ""
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
-    setFormData({ platform: "", api_key: "", webhook_url: "" });
+  
+    try {
+      const response = await fetchData("api/v1/connect-platform", "POST", formData);
+      // if (!formData.api_key || !formData.webhook_url) {
+      //   alert("Please fill in all fields.");
+      //   return;
+      // }
+      
+      if (response) {
+        console.log("Platform connected successfully:", response);
+        onSave(formData); 
+        setFormData({ platform: "", api_key: "", webhook_url: "" });
+        onCancel();
+      } else {
+        console.error("Failed to connect platform.");
+      }
+    } catch (error) {
+      console.error("Unexpected error during platform connection:", error);
+    }
   };
-
+  
   const selectedPlatform = PLATFORMS.find(p => p.id === formData.platform);
 
   return (
@@ -83,18 +101,17 @@ const ConnectPlatform: React.FC<ConnectPlatformProps> = ({ onSave, onCancel }) =
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="webhook">Webhook URL</Label>
-              <Input
-                id="webhook"
-                type="url"
-                value={formData.webhook_url}
-                onChange={(e) =>
-                  setFormData({ ...formData, webhook_url: e.target.value })
-                }
-                placeholder="https://..."
-                required
-              />
-            </div>
+            <Label htmlFor="webhook">Webhook URL</Label>
+            <Input
+              id="webhook"
+              type="text" 
+              value={formData.webhook_url}
+              onChange={(e) =>
+                setFormData({ ...formData, webhook_url: e.target.value })
+              }
+              placeholder="Enter webhook URL"
+            />
+          </div>
           </>
         )}
 

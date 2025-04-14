@@ -2,7 +2,7 @@
 from fastapi import APIRouter, UploadFile, File, Form,Request
 
 from fastapi.responses import JSONResponse
-from backend.schemas.chatbot import chatbotdata, PlatformData, WorkflowPayload,AIModel
+from backend.schemas.chatbot import chatbotdata, ConntectPlatformData, WorkflowPayload,AIModel
 import json
 
 router = APIRouter()
@@ -39,3 +39,16 @@ async def set_workflow(payload: WorkflowPayload):
 async def save_ai_model(model: AIModel):
     print(model)
     return {"message": "AI Model saved successfully", "model": model}
+
+
+@router.post("/connect-platform")
+async def connect_platform(data: ConntectPlatformData):
+    print("Received platform connection data:", data)
+    print(type(data.webhook_url))
+    response_data = {
+        "platform": data.platform,
+        "api_key": data.api_key,
+        "webhook_url": data.webhook_url  
+    }
+
+    return JSONResponse(content={"message": "Platform connected successfully!", "data": response_data})

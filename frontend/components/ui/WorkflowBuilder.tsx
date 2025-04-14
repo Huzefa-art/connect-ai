@@ -21,9 +21,18 @@ interface AIModel {
   modelName: string;
   promptTemplate: string;
 }
-
+interface Platform {
+  id:string
+  platformName: string
+}
+interface UploadedDocs {
+  id:string
+  docName:string
+}
 interface WorkflowFlowProps {
   aiModels: AIModel[];
+  platforms: Platform[];
+  uploadedDocs:  UploadedDocs[];
 }
 const CustomNode = ({ id, data }: { id: string; data: any }) => {
   const updateNodeInternals = useUpdateNodeInternals();
@@ -70,7 +79,8 @@ const CustomNode = ({ id, data }: { id: string; data: any }) => {
       </h3>
 
       {/* Editable Prompt (if not User) */}
-      {!isUserNode && (
+      {/* {!isUserNode && ( */}
+      {data.systemPrompt !== undefined && (
         <div style={{ textAlign: 'left' }}>
           <label
             style={{
@@ -102,7 +112,7 @@ const CustomNode = ({ id, data }: { id: string; data: any }) => {
     </div>
   );
 };
-const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels }) => {
+const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels, platforms, uploadedDocs }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -114,9 +124,27 @@ const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels }) => {
       data: { label: 'User' },
       position: { x: 50, y: 50 },
     };
-
-  const modelNodes = aiModels.map((model, index) => ({
-      id: model.id,
+    const uploadedDocsNodes = uploadedDocs.map((model, index) => ({
+      id: `doc-${model.id}`,
+      type: 'custom',
+      data: {
+        label: model.docName,
+        setData: setNodes,
+      },
+      position: { x: index * 250 + 50, y: 200 },
+    })); 
+    const platformNodes = platforms.map((model, index) => ({
+      id: `platform-${model.id}`,
+      type: 'custom',
+      data: {
+        label: model.platformName,
+        setData: setNodes,
+      },
+      position: { x: index * 250 + 50, y: 200 },
+    }));  
+    
+    const modelNodes = aiModels.map((model, index) => ({
+      id: `ai-${model.id}`,
       type: 'custom',
       data: {
         label: model.modelName,
@@ -126,8 +154,8 @@ const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels }) => {
       position: { x: index * 250 + 50, y: 200 },
     }));
 
-    setNodes([userNode, ...modelNodes]);
-  }, [aiModels, setNodes]);
+    setNodes([userNode, ...modelNodes, ...platformNodes, ...uploadedDocsNodes]);
+  }, [aiModels, platforms, uploadedDocs, setNodes]);
 
   // Handle manual connections (edges will have arrowheads by default)
   const onConnect = useCallback(
