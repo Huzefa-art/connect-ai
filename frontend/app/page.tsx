@@ -58,15 +58,15 @@ export default function Home() {
 
   const handleChat = async () => {
     if (!message.trim()) return; // Prevent sending if input is empty
-  
+    setMessage("");
+
     // Add user's message to chat history
     setMessages((prevMessages) => [...prevMessages, { sender: "user", text: message }]);
-  
+    
     const data = await fetchData("api/v1/get_response", "POST", { msg: message });
-  
     if (data) {
       setMessages((prevMessages) => [...prevMessages, { sender: "bot", text: data.response }]);
-      setMessage(""); // Clear input after sending
+      // setMessage(""); // Clear input after sending
     }
   };
   

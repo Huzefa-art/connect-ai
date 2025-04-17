@@ -1,28 +1,161 @@
 # app/api/v1/routes/chatbot.py
-from fastapi import APIRouter, UploadFile, File, Form,Request
+from fastapi import APIRouter, UploadFile, File, Form,Request,HTTPException
+import logging
 
 from fastapi.responses import JSONResponse
 from backend.schemas.chatbot import chatbotdata, ConntectPlatformData, WorkflowPayload,AIModel
 import json
+import getpass
+import os
+import hashlib
+
+from langchain.chat_models import init_chat_model
+from langchain_openai import OpenAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
+
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain import hub
+from dotenv import load_dotenv
+from langchain.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableParallel, RunnablePassthrough
+from langchain_ollama.llms import OllamaLLM
+
+from langchain_core.prompts import ChatPromptTemplate
+
+load_dotenv()
+# api_key = os.getenv("OPENAI_API_KEY")
+# if not api_key:
+#     raise ValueError("OPENAI_API_KEY not found in environment variables")
+
+logging.basicConfig(
+    level=logging.INFO,
+    filename='app.log',  
+    filemode='w',        
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter()
+
+llm: any = None
+embeddings: any = None
+vectorstore: InMemoryVectorStore = None
+existing_hashes = set()
+reasoning = False
+@router.on_event("startup")
+async def startup_event():
+    global llm, embeddings, vectorstore, reasoning
+
+    logger.info("Starting the FastAPI application...")
+
+    logger.info("Initializing language models...")
+    # llm = init_chat_model("gpt-4o-mini", model_provider="openai")
+    model_names = ["deepseek-r1:1.5b","qwen2.5:0.5b"]
+    using_model = model_names[1]
+    llm = OllamaLLM(model=using_model)
+    if "deepseek" in using_model:
+        reasoning = True
+
+    logger.info("Loading HuggingFace embeddings model...")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-mpnet-base-v2",
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"normalize_embeddings": False},
+    )
+
+    logger.info("Initializing InMemory vector store...")
+    vectorstore = InMemoryVectorStore.from_documents([], embeddings)
+    logger.info("FastAPI application started and services are initialized.")
+    
+def compute_hash(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+def load_LLM(question: str):
+    global vectorstore, llm
+    # print(vectorstore)
+    # top_docs = vectorstore.similarity_search(question, k=2)
+    retriever = vectorstore.as_retriever()
+
+    rag_prompt = """
+    You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.
+    Question: {question} 
+    Context: {context}
+    Answer:
+    """
+
+    prompt = ChatPromptTemplate.from_template(rag_prompt)
+    output_parser = StrOutputParser()
+
+    setup_and_retrieval = RunnableParallel(
+        {"context": retriever, "question": RunnablePassthrough()}
+    )
+    # print(setup_and_retrieval)
+    chain = setup_and_retrieval | prompt | llm | output_parser
+    output = chain.invoke(question)
+    return output
 
 # chat response
 @router.post("/get_response")
 async def get_response(data: chatbotdata):
-    print(data)
-    response_text = f"You said: {data.msg}"
-    return {"response": response_text}
+    global reasoning
+    answer = load_LLM(data.msg)
+    print(reasoning)
+    if reasoning:
+        start_tag = "<think>"
+        end_tag = "</think>"
+        think_part = answer.split(start_tag)[1].split(end_tag)[0].strip()
+        output_part = answer.split(end_tag)[1].strip()
+
+        return { "response": f"{output_part}" }
+
+    
+    return {"response": answer}
 
 
 # upload documents
 @router.post("/upload")
 async def upload_doc(file: UploadFile = File(...)):
+    global vectorstore, existing_hashes
     contents = await file.read()
-    
-    print(f"Received file: {file.filename}, size: {len(contents)} bytes")
 
-    return JSONResponse(content={"filename": file.filename})
+    doc_hash = compute_hash(contents)
+    if doc_hash in existing_hashes:
+        print("Duplicate document detected. Skipping addition into vector database.")
+        return JSONResponse(
+            content={"filename": file.filename, "message": "Duplicate document detected."},
+            status_code=400
+        )
+        
+    temp_file_path = f"temp_{file.filename}"
+    with open(temp_file_path, "wb") as f:
+        f.write(contents)
+    try:
+        loader = PyPDFLoader(temp_file_path)
+        pages = loader.load()
+
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            add_start_index=True,
+        )
+        splits = splitter.split_documents(pages)
+        vectorstore.add_documents(splits)
+
+        existing_hashes.add(doc_hash)
+
+        return JSONResponse(content={"filename": file.filename, "message": "Document uploaded and processed successfully."})
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred while processing the document: {str(e)}")
+    finally:
+        # Clean up the temporary file
+        os.remove(temp_file_path)
+
 
 # set workflow
 @router.post("/set-workflow")

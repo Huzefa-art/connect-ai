@@ -1,0 +1,5 @@
+**/__pycache__/
+folder-structure.txt
+text.txt
+app.log
+backend/api/v1/routes/__pycache__/chatbot.cpython-312.pyc
