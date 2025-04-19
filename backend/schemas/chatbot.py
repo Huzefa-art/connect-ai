@@ -17,6 +17,7 @@ class WorkflowEdge(BaseModel):
 class WorkflowNode(BaseModel):
     id: str
     name: str
+    provider: Optional[str] = None
     systemPrompt: Optional[str] = None
 
 class WorkflowPayload(BaseModel):

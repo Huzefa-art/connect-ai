@@ -65,28 +65,34 @@ Answer:
 """
 @router.on_event("startup")
 async def startup_event():
-    global llm, embeddings, vectorstore, reasoning
+    global available_llms, embeddings, vectorstore, reasoning
 
     logger.info("Starting the FastAPI application...")
 
     logger.info("Initializing language models...")
+    available_llms = ["qwen2.5:0.5b"]
     # llm = init_chat_model("gpt-4o-mini", model_provider="openai")
-    model_names = ["deepseek-r1:1.5b","qwen2.5:0.5b"]
-    using_model = model_names[1]
-    llm = OllamaLLM(model=using_model)
-    if "deepseek" in using_model:
-        reasoning = True
+    # model_names = ["deepseek-r1:1.5b","qwen2.5:0.5b"]
+    # using_model = model_names[1]
+    # llm = OllamaLLM(model=using_model)
+    # if "deepseek" in using_model:
+    #     reasoning = True
 
-    logger.info("Loading HuggingFace embeddings model...")
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-mpnet-base-v2",
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": False},
-    )
+    # logger.info("Loading HuggingFace embeddings model...")
+    # embeddings = HuggingFaceEmbeddings(
+    #     model_name="sentence-transformers/all-mpnet-base-v2",
+    #     model_kwargs={"device": "cpu"},
+    #     encode_kwargs={"normalize_embeddings": False},
+    # )
 
-    logger.info("Initializing InMemory vector store...")
-    vectorstore = InMemoryVectorStore.from_documents([], embeddings)
+    # logger.info("Initializing InMemory vector store...")
+    # vectorstore = InMemoryVectorStore.from_documents([], embeddings)
     logger.info("FastAPI application started and services are initialized.")
+def set_llm(provider,modelname):
+    if provider == "OllamaLLM":
+        return OllamaLLM(model=modelname)
+    
+        # return provider + modelname
 
 async def handle_platform(node, input_data):
     question = input_data["question"]
@@ -96,12 +102,16 @@ async def handle_platform(node, input_data):
     # return f" this is my handle platform {node['name']}'{input_data}'"
 
 async def handle_llm(node, input_data):
-    global llm, rag_prompt, teacherPrompt
-
+    global rag_prompt, teacherPrompt , available_llms
 
     question = input_data["question"]
+    provider = input_data["provider"]
+    model_name = input_data["modelname"]
+    if model_name not in available_llms:
+        return {"question":question, "answer":f"MODEL {model_name} NOT available."}
+    llm = set_llm(provider,model_name)
+    print("-------",llm)
     output_parser = StrOutputParser()
-
     if "vector_store" in input_data:
         prompt = ChatPromptTemplate.from_template(rag_prompt)
         setup_and_retrieval = input_data["vector_store"]
@@ -133,7 +143,7 @@ async def run_workflow(user_input):
     global workflow_config, HANDLERS
     output = user_input
     if all(len(steps) == 0 for steps in workflow_config.values()):
-        return "No workflow steps configured"
+        return "Please set workflow configuration"
  
 
     # Build node lookup from workflow_config
@@ -141,11 +151,12 @@ async def run_workflow(user_input):
         node_id: {
             "bucket": bucket,
             "name": name,
+            "provider":provider,
             "prompt": prompt,
             "next": next_id
         }
         for bucket, items in workflow_config.items()
-        for node_id, name, prompt, next_id in items
+        for node_id, name,provider,prompt, next_id in items
     }
 
     # Start from the first platform node
@@ -154,9 +165,13 @@ async def run_workflow(user_input):
 
     current_node_id = workflow_config["platform"][0][0]
     start_node_id = workflow_config["platform"][0][0]
+
     while current_node_id:
         node = node_lookup[current_node_id]
         handler = HANDLERS[node["bucket"]]
+        print(node["provider"],node["name"])
+        output["provider"] = node["provider"]
+        output["modelname"] = node["name"]
         output = await handler(node, output)
         current_node_id = node["next"]
         if current_node_id == start_node_id:
@@ -318,12 +333,22 @@ async def set_workflow(payload: WorkflowPayload):
         to  = node_by_name[edge.to]
 
         bucket = classify(frm.id)
-        workflow_config[bucket].append((
-            frm.id,            
-            frm.name,         
-            frm.systemPrompt,  
-            to.id              
-        ))
+        if bucket == "ai":
+            workflow_config[bucket].append((
+                frm.id,
+                frm.name,
+                frm.provider,
+                frm.systemPrompt,
+                to.id
+            ))
+        else:
+            workflow_config[bucket].append((
+                frm.id,
+                frm.name,
+                None,
+                None,
+                to.id
+            ))
 
     print("Built workflow_config:", workflow_config)
     return {

@@ -5,7 +5,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { fetchData } from "@/utils/api"; 
-import AIModelForm from "@/components/ui/aimodels"; // Adjust the path if necessary
+import AIModelForm from "@/components/ui/aimodels"; 
 import WorkflowBuilder from '@/components/ui/WorkflowBuilder'; 
 import ConnectPlatform from "@/components/ui/ConnectPlatform"
 import FileUploadButton from "@/components/ui/FileUpload";
@@ -16,7 +16,9 @@ export default function Home() {
   { id: string; modelName: string; provider: string; apiKey: string; promptTemplate: string }[]>([]);
   const [platforms, setPlatforms] = useState<{ id: string; platformName: string }[]>([]);
   const [docs, setDocs] = useState<{ id: string; docName: string }[]>([]);
-
+  const [workflowNodes, setWorkflowNodes] = useState<any[]>([]);
+  const [workflowEdges, setWorkflowEdges] = useState<any[]>([]);
+  
   const [message, setMessage] = useState("");
 
   // const [response, setResponse] = useState('');
@@ -499,7 +501,11 @@ export default function Home() {
           </div>
         )} */}
         {activeTab === "workflows" && (
-          <WorkflowBuilder aiModels={aiModels} platforms={platforms} uploadedDocs={docs}/>
+          <WorkflowBuilder aiModels={aiModels} platforms={platforms} uploadedDocs={docs} 
+          nodes={workflowNodes}
+          setNodes={setWorkflowNodes}
+          edges={workflowEdges}
+          setEdges={setWorkflowEdges}/>
         )}
 
         </div>

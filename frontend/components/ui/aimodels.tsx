@@ -64,10 +64,12 @@ const AIModelForm: React.FC<AIModelFormProps> = ({ onSave, onCancel, initialData
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="openai">OpenAI</SelectItem>
+            <SelectItem value="OllamaLLM">OllamaLLM</SelectItem>
             <SelectItem value="anthropic">Anthropic</SelectItem>
             <SelectItem value="midjourney">Midjourney</SelectItem>
-            <SelectItem value="elevenlabs">ElevenLabs</SelectItem>
             <SelectItem value="stable_diffusion">Stable Diffusion</SelectItem>
+
+
           </SelectContent>
         </Select>
       </div>

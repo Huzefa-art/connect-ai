@@ -1,26 +1,31 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import ReactFlow, {
   addEdge,
-  useNodesState,
-  useEdgesState,
+  applyNodeChanges,
+  applyEdgeChanges,
   Background,
   Controls,
   Handle,
   Position,
   Connection,
   Edge,
+  Node,
+  NodeChange,
+  EdgeChange,
   ConnectionLineType,
   MarkerType,
   useUpdateNodeInternals,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+} from 'reactflow';import 'reactflow/dist/style.css';
 import { fetchData } from "@/utils/api";
 
 interface AIModel {
   id: string;
   modelName: string;
+  provider: string;
   promptTemplate: string;
+
 }
+
 interface Platform {
   id:string
   platformName: string
@@ -33,6 +38,11 @@ interface WorkflowFlowProps {
   aiModels: AIModel[];
   platforms: Platform[];
   uploadedDocs:  UploadedDocs[];
+  nodes: Node[];
+  setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
+  edges: Edge[];
+  setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
+
 }
 const CustomNode = ({ id, data }: { id: string; data: any }) => {
   const updateNodeInternals = useUpdateNodeInternals();
@@ -40,9 +50,16 @@ const CustomNode = ({ id, data }: { id: string; data: any }) => {
   useEffect(() => {
     updateNodeInternals(id);
   }, [id, updateNodeInternals]);
-
-  const handleStyle = { background: '#6C47FF', width: '12px', height: '12px' };
-
+  
+  const handleStyle = {
+    background: '#6C47FF',
+    width: '16px', // Increased width for better visibility
+    height: '16px', // Increased height
+    borderRadius: '50%',
+    border: '2px solid white', // Optional: border to make it more visible
+    cursor: 'pointer', // To indicate it's interactable
+  };
+  
   const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     data.setData((prev: any) =>
       prev.map((node: any) =>
@@ -68,10 +85,10 @@ const CustomNode = ({ id, data }: { id: string; data: any }) => {
       }}
     >
       {/* Connection Handles */}
-      <Handle type="target" position={Position.Top} style={handleStyle} />
-      <Handle type="source" position={Position.Right} style={handleStyle} />
-      <Handle type="source" position={Position.Bottom} style={handleStyle} />
-      <Handle type="target" position={Position.Left} style={handleStyle} />
+      <Handle type="target" position={Position.Top} id="top" style={handleStyle} isConnectable={true} />
+      <Handle type="source" position={Position.Right} id="right" style={handleStyle} isConnectable={true} />
+      <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} isConnectable={true} />
+      <Handle type="target" position={Position.Left} id="left" style={handleStyle} isConnectable={true} />
 
       {/* Node Title */}
       <h3 style={{ color: '#6C47FF', margin: '0 0 8px', fontWeight: 'bold', fontSize: '16px' }}>
@@ -112,10 +129,18 @@ const CustomNode = ({ id, data }: { id: string; data: any }) => {
     </div>
   );
 };
-const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels, platforms, uploadedDocs }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels, platforms, uploadedDocs,nodes, setNodes, edges, setEdges }) => {
+  console.log("Received aiModels:", aiModels);
 
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    [setNodes]
+  );
+  
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    [setEdges]
+  );
   // Update nodes when aiModels change
   useEffect(() => {
     const userNode = {
@@ -149,6 +174,7 @@ const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels, platforms, upload
       data: {
         label: model.modelName,
         systemPrompt: model.promptTemplate,
+        provider: model.provider, 
         setData: setNodes,
       },
       position: { x: index * 250 + 50, y: 200 },
@@ -156,7 +182,20 @@ const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels, platforms, upload
 
     setNodes([userNode, ...modelNodes, ...platformNodes, ...uploadedDocsNodes]);
   }, [aiModels, platforms, uploadedDocs, setNodes]);
-
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Delete') {
+        setNodes((nds) => nds.filter((node) => !node.selected));
+        setEdges((eds) => eds.filter((edge) => !edge.selected));
+      }
+    };
+  
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [setNodes, setEdges]);
+  
   // Handle manual connections (edges will have arrowheads by default)
   const onConnect = useCallback(
     (params: Edge | Connection) =>
@@ -183,6 +222,7 @@ const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels, platforms, upload
     const nodesConfig = nodes.map((node) => ({
       id: node.id,
       name: node.data.label,
+      provider: node.data.provider || null,
       systemPrompt: node.data.systemPrompt || null,
     }));
   
@@ -229,7 +269,7 @@ const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels, platforms, upload
       </div>
 
       <div style={{ height: '500px', width: '100%' }}>
-        <ReactFlow
+        <ReactFlow        
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
