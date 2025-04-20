@@ -42,25 +42,45 @@ const AIModelForm: React.FC<AIModelFormProps> = ({ onSave, onCancel, initialData
       alert("Failed to save AI Model.");
     }
   };
-
+  const modelOptions: { [key: string]: string[] } = {
+    openai: ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo"],
+    OllamaLLM: ["llama2", "mistral", "gemma"],
+    anthropic: ["claude-1", "claude-2", "claude-3"],
+    midjourney: ["v5", "v5.1", "v6"],
+    stable_diffusion: ["sd-v1", "sd-v1.5", "sdxl"],
+  };
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <h2 className="text-xl font-bold mb-4">AI Models Configuration</h2>
       <div className="space-y-2">
         <Label>Model Name</Label>
-        <Input
-          type="text"
+        <Select
           value={modelName}
-          onChange={(e) => setModelName(e.target.value)}
-          placeholder="Enter model name"
-          required
-        />
+          onValueChange={(value: string) => setModelName(value)}
+          disabled={!provider} 
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select model" />
+          </SelectTrigger>
+          <SelectContent>
+            {(modelOptions[provider] || []).map((model) => (
+              <SelectItem key={model} value={model}>
+                {model}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-2">
         <Label>Provider</Label>
-        <Select value={provider} onValueChange={(value: string) => setProvider(value)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select provider" />
+        <Select
+        value={provider}
+        onValueChange={(value: string) => {
+          setProvider(value);
+          setModelName(""); 
+        }}>          
+        <SelectTrigger>
+          <SelectValue placeholder="Select provider" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="openai">OpenAI</SelectItem>

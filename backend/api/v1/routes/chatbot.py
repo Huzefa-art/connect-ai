@@ -70,7 +70,7 @@ async def startup_event():
     logger.info("Starting the FastAPI application...")
 
     logger.info("Initializing language models...")
-    available_llms = ["qwen2.5:0.5b"]
+    available_llms = ["qwen2.5:0.5b","deepseek-r1:1.5b"]
     # llm = init_chat_model("gpt-4o-mini", model_provider="openai")
     # model_names = ["deepseek-r1:1.5b","qwen2.5:0.5b"]
     # using_model = model_names[1]
@@ -90,6 +90,7 @@ async def startup_event():
     logger.info("FastAPI application started and services are initialized.")
 def set_llm(provider,modelname):
     if provider == "OllamaLLM":
+        
         return OllamaLLM(model=modelname)
     
         # return provider + modelname
@@ -100,7 +101,6 @@ async def handle_platform(node, input_data):
 
     # print(f"[Platform] {node['name']} → passing input")
     # return f" this is my handle platform {node['name']}'{input_data}'"
-
 async def handle_llm(node, input_data):
     global rag_prompt, teacherPrompt , available_llms
 
@@ -117,18 +117,20 @@ async def handle_llm(node, input_data):
         setup_and_retrieval = input_data["vector_store"]
         chain = setup_and_retrieval | prompt | llm | output_parser
         output = chain.invoke(question)
+        print("-------My output",output)
         return {"vector_store":setup_and_retrieval,"question":question, "answer":output}
 
     else:
         prompt = ChatPromptTemplate.from_template(teacherPrompt)
         chain = prompt  | llm  |  output_parser
         output = chain.invoke(question)
+        print(f"-------My output{output} ----- my question {question}",)
         return {"question":question, "answer":output}
 
 
 
-    # print(f"[LLM] {node['name']} → prompt: {node['prompt']}")
-    # return f" this is my handle llm {node['name']}'{input_data}'"
+    print(f"[LLM] {node['name']} → prompt: {node['prompt']}")
+    return f" this is my handle llm {node['name']}'{input_data}'"
 
 async def handle_document(node, input_data):
     question = input_data["question"]
