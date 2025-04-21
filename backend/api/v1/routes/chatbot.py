@@ -23,7 +23,9 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnableParallel, RunnablePassthrough
 from langchain_ollama.llms import OllamaLLM
 from typing import Dict, List, Tuple, Any
-from langchain_core.prompts import ChatPromptTemplate
+from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
+from langchain_core.runnables import RunnableLambda
+
 import asyncio
 
 load_dotenv()
@@ -52,6 +54,7 @@ workflow_config: Dict[str, List[Tuple[str, Any, Tuple[str, str]]]] = {
     "ai":       [],
     "document": []
 }
+chain = None
 teacherPrompt = """
 You are an Teacher for question-answering tasks, Use two sentences maximum and keep the answer concise.
 Question: {question} 
@@ -78,117 +81,228 @@ async def startup_event():
     # if "deepseek" in using_model:
     #     reasoning = True
 
-    # logger.info("Loading HuggingFace embeddings model...")
-    # embeddings = HuggingFaceEmbeddings(
-    #     model_name="sentence-transformers/all-mpnet-base-v2",
-    #     model_kwargs={"device": "cpu"},
-    #     encode_kwargs={"normalize_embeddings": False},
-    # )
+    logger.info("Loading HuggingFace embeddings model...")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-mpnet-base-v2",
+        model_kwargs={"device": "cuda"},
+        encode_kwargs={"normalize_embeddings": False},
+    )
 
     # logger.info("Initializing InMemory vector store...")
-    # vectorstore = InMemoryVectorStore.from_documents([], embeddings)
+    vectorstore = InMemoryVectorStore.from_documents([], embeddings)
     logger.info("FastAPI application started and services are initialized.")
-def set_llm(provider,modelname):
-    if provider == "OllamaLLM":
+# def set_llm(provider,modelname):
+#     if provider == "OllamaLLM":
         
-        return OllamaLLM(model=modelname)
+#         return OllamaLLM(model=modelname)
     
         # return provider + modelname
 
-async def handle_platform(node, input_data):
-    question = input_data["question"]
-    return {"question":question}
+# async def handle_platform(node, input_data):
+#     question = input_data["question"]
+#     return {"question":question}
 
     # print(f"[Platform] {node['name']} → passing input")
     # return f" this is my handle platform {node['name']}'{input_data}'"
-async def handle_llm(node, input_data):
-    global rag_prompt, teacherPrompt , available_llms
+# async def handle_llm(node, input_data):
+#     global rag_prompt, teacherPrompt , available_llms
 
-    question = input_data["question"]
-    provider = input_data["provider"]
-    model_name = input_data["modelname"]
-    if model_name not in available_llms:
-        return {"question":question, "answer":f"MODEL {model_name} NOT available."}
-    llm = set_llm(provider,model_name)
-    print("-------",llm)
-    output_parser = StrOutputParser()
-    if "vector_store" in input_data:
-        prompt = ChatPromptTemplate.from_template(rag_prompt)
-        setup_and_retrieval = input_data["vector_store"]
-        chain = setup_and_retrieval | prompt | llm | output_parser
-        output = chain.invoke(question)
-        print("-------My output",output)
-        return {"vector_store":setup_and_retrieval,"question":question, "answer":output}
+#     question = input_data["question"]
+#     provider = input_data["provider"]
+#     model_name = input_data["modelname"]
+#     if model_name not in available_llms:
+#         return {"question":question, "answer":f"MODEL {model_name} NOT available."}
+#     llm = set_llm(provider,model_name)
+#     print("-------",llm)
+#     output_parser = StrOutputParser()
+#     if "vector_store" in input_data:
+#         prompt = ChatPromptTemplate.from_template(rag_prompt)
+#         setup_and_retrieval = input_data["vector_store"]
+#         chain = setup_and_retrieval | prompt | llm | output_parser
+#         output = chain.invoke(question)
+#         print("-------My output",output)
+#         return {"vector_store":setup_and_retrieval,"question":question, "answer":output}
 
-    else:
-        prompt = ChatPromptTemplate.from_template(teacherPrompt)
-        chain = prompt  | llm  |  output_parser
-        output = chain.invoke(question)
-        print(f"-------My output{output} ----- my question {question}",)
-        return {"question":question, "answer":output}
+#     else:
+#         prompt = ChatPromptTemplate.from_template(teacherPrompt)
+#         chain = prompt  | llm  |  output_parser
+#         output = chain.invoke(question)
+#         print(f"-------My output{output} ----- my question {question}",)
+#         return {"question":question, "answer":output}
 
 
 
-    print(f"[LLM] {node['name']} → prompt: {node['prompt']}")
-    return f" this is my handle llm {node['name']}'{input_data}'"
+#     print(f"[LLM] {node['name']} → prompt: {node['prompt']}")
+#     return f" this is my handle llm {node['name']}'{input_data}'"
 
-async def handle_document(node, input_data):
-    question = input_data["question"]
+# async def handle_document(node, input_data):
+#     question = input_data["question"]
 
-    setup_and_retrieval,question=load_docs(question)
-    return {"vector_store":setup_and_retrieval,"question":question}
+#     setup_and_retrieval,question=load_docs(question)
+#     return {"vector_store":setup_and_retrieval,"question":question}
     
     # print(f"[Document] Generating: {node['name']}")
     # return f"this is my document{node['name']}'{input_data}"
 
-async def run_workflow(user_input):
-    global workflow_config, HANDLERS
-    output = user_input
-    if all(len(steps) == 0 for steps in workflow_config.values()):
-        return "Please set workflow configuration"
+def build_prompt(system_prompt,is_rag):
+    # print("-----------------",is_rag)
+    if is_rag:
+        
+        return ChatPromptTemplate.from_messages([
+            SystemMessagePromptTemplate.from_template(system_prompt),
+            HumanMessagePromptTemplate.from_template(
+                "Context:\n{context}\n\nQuestion:\n{question}"
+            )
+        ])
+    return ChatPromptTemplate.from_messages([
+        SystemMessagePromptTemplate.from_template(system_prompt),
+        HumanMessagePromptTemplate.from_template("{question}")
+    ])
+def build_llm(name, provider):
+    if provider == "OllamaLLM":
+        return OllamaLLM(model=name)
+    ## defualt
+    
+def build_retriever(doc_name):
+    global vectorstore
+
+    retriever = vectorstore.as_retriever()
+
+    question_only = RunnableLambda(lambda x: x["question"])
+
+    return RunnableParallel(
+        {
+            "context": question_only | retriever,
+            "question": RunnablePassthrough()
+        }
+    )
+def platform_setup(workflow_config):
+
+    platform_names = [name for (_, name, *_ ) in workflow_config["platform"]]
+
+    if "WhatsApp" in platform_names:
+        setup_whatsapp_webhook()
+
+    # if "Telegram" in platform_names:
+    #     setup_telegram_bot()
+
+    # if "Discord" in platform_names:
+    #     setup_discord_listener()
+
+def build_chain_from_config(workflow_config):
+
+
+    # Build a lookup for all node types (AI, document, etc.)
+    node_lookup = {}
+
+    for bucket in ["ai", "document"]:
+        for node_id, name, provider, prompt, next_id in workflow_config[bucket]:
+            node_lookup[node_id] = {
+                "name": name,
+                "provider": provider,
+                "systemPrompt": prompt,
+                "next": next_id
+            }
+
+    # Start from platform node
+    start_node_id = workflow_config["platform"][0][0]
+    next_node_id = workflow_config["platform"][0][-1]
+
+    print("---- node_lookup:", node_lookup)
+    print("---- starting from:", next_node_id)
+
+    chain_steps = []
+    current_node_id = next_node_id
+    
+    is_rag = False
+    while current_node_id in node_lookup:
+        node = node_lookup[current_node_id]
+        name = node["name"]
+        prompt = node.get("systemPrompt")
+        provider = node.get("provider")
+        # Document Retrieval (optional, based on node ID or name)
+        if current_node_id.startswith("doc-") or name.endswith(".pdf"):
+            if not is_rag:
+                is_rag=True
+            retriever = build_retriever(name)
+            chain_steps.append(retriever)
+
+        # Prompt template
+        if prompt:
+            print("---------------------",is_rag)
+
+            prompt_template = build_prompt(prompt,is_rag)
+            chain_steps.append(prompt_template)
+            is_rag = False
+
+        # LLM
+        if provider:
+            llm = build_llm(name,provider)
+            chain_steps.append(llm)
+
+        current_node_id = node.get("next")
+
+    output_parser = StrOutputParser()
+    chain_steps.append(output_parser)
+
+    # Compose the full chain
+    full_chain = chain_steps[0]
+    for step in chain_steps[1:]:
+        full_chain = full_chain | step
+
+    print(full_chain)
+    return full_chain
+
+
+
+# async def run_workflow(user_input):
+#     global workflow_config, HANDLERS
+#     output = user_input
+#     if all(len(steps) == 0 for steps in workflow_config.values()):
+#         return "Please set workflow configuration"
  
 
-    # Build node lookup from workflow_config
-    node_lookup = {
-        node_id: {
-            "bucket": bucket,
-            "name": name,
-            "provider":provider,
-            "prompt": prompt,
-            "next": next_id
-        }
-        for bucket, items in workflow_config.items()
-        for node_id, name,provider,prompt, next_id in items
-    }
+#     # Build node lookup from workflow_config
+#     node_lookup = {
+#         node_id: {
+#             "bucket": bucket,
+#             "name": name,
+#             "provider":provider,
+#             "prompt": prompt,
+#             "next": next_id
+#         }
+#         for bucket, items in workflow_config.items()
+#         for node_id, name,provider,prompt, next_id in items
+#     }
+#     print("----This is my node_lookup",node_lookup)
+#     # Start from the first platform node
+#     if not workflow_config["platform"]:
+#         return {"error": "No platform node found"}
 
-    # Start from the first platform node
-    if not workflow_config["platform"]:
-        return {"error": "No platform node found"}
+#     current_node_id = workflow_config["platform"][0][0]
+#     start_node_id = workflow_config["platform"][0][0]
 
-    current_node_id = workflow_config["platform"][0][0]
-    start_node_id = workflow_config["platform"][0][0]
+#     while current_node_id:
+#         node = node_lookup[current_node_id]
+#         handler = HANDLERS[node["bucket"]]
+#         print(node["provider"],node["name"])
+#         output["provider"] = node["provider"]
+#         output["modelname"] = node["name"]
+#         output = await handler(node, output)
+#         current_node_id = node["next"]
+#         if current_node_id == start_node_id:
+#             break
+#     print("my final ouput-----",output)
+#     if "answer" in output:
+#         return output["answer"]
+#     else:
+#         return "Sorry got no answer"
 
-    while current_node_id:
-        node = node_lookup[current_node_id]
-        handler = HANDLERS[node["bucket"]]
-        print(node["provider"],node["name"])
-        output["provider"] = node["provider"]
-        output["modelname"] = node["name"]
-        output = await handler(node, output)
-        current_node_id = node["next"]
-        if current_node_id == start_node_id:
-            break
-    print("my final ouput-----",output)
-    if "answer" in output:
-        return output["answer"]
-    else:
-        return "Sorry got no answer"
-
-HANDLERS = {
-    "platform": handle_platform,
-    "ai": handle_llm,
-    "document": handle_document
-}
+# HANDLERS = {
+#     "platform": handle_platform,
+#     "ai": handle_llm,
+#     "document": handle_document
+# }
 def classify(node_id: str) -> str:
     """
     Simple heuristic: anything with id 'ai-...' is AI,
@@ -264,9 +378,14 @@ def load_docs(question: str):
 #     return {"response": answer}
 @router.post("/get_response")
 async def get_response(data: chatbotdata):
-    user_question = {"question":data.msg}
+    global chain
 
-    return {"response": await run_workflow(user_question)}
+    
+    # user_question = {"question":data.msg}
+
+    return {"response": chain.invoke({ "question": data.msg })}
+
+    # return {"response": await run_workflow(user_question)}
 
 # upload documents
 @router.post("/upload")
@@ -318,7 +437,8 @@ async def upload_doc(file: UploadFile = File(...)):
 # set workflow
 @router.post("/set-workflow")
 async def set_workflow(payload: WorkflowPayload):
-    global workflow_config
+    global workflow_config, chain
+
     print("Received workflow:", payload.workflow)
     print("Received nodes:", payload.nodes)
 
@@ -353,6 +473,8 @@ async def set_workflow(payload: WorkflowPayload):
             ))
 
     print("Built workflow_config:", workflow_config)
+    chain = build_chain_from_config(workflow_config)
+
     return {
         "message": "Workflow received successfully!",
         "config":  workflow_config

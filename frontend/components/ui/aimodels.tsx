@@ -44,7 +44,7 @@ const AIModelForm: React.FC<AIModelFormProps> = ({ onSave, onCancel, initialData
   };
   const modelOptions: { [key: string]: string[] } = {
     openai: ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo"],
-    OllamaLLM: ["llama2", "mistral", "gemma"],
+    OllamaLLM: ["llama2", "mistral", "gemma","qwen2.5:0.5b","deepseek-r1:1.5b"],
     anthropic: ["claude-1", "claude-2", "claude-3"],
     midjourney: ["v5", "v5.1", "v6"],
     stable_diffusion: ["sd-v1", "sd-v1.5", "sdxl"],
