@@ -24,30 +24,46 @@ const ConnectPlatform: React.FC<ConnectPlatformProps> = ({ onSave, onCancel}) =>
     api_key: "",
     webhook_url: ""
   });
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-  
+    setIsSubmitting(true);
     try {
-      const response = await fetchData("api/v1/connect-platform", "POST", formData);
-      // if (!formData.api_key || !formData.webhook_url) {
-      //   alert("Please fill in all fields.");
-      //   return;
-      // }
-      
-      if (response) {
-        console.log("Platform connected successfully:", response);
-        onSave(formData); 
+      // Sending the POST request with the formData
+      const response = await fetch("http://localhost:8000/api/v1/connect-platform", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(formData)
+      });
+  
+      // Check if the response is successful
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Platform connected successfully:", data);
+        onSave(formData);
         setFormData({ platform: "", api_key: "", webhook_url: "" });
         onCancel();
       } else {
-        console.error("Failed to connect platform.");
+        // Handle errors based on the response status
+        const errorData = await response.json();
+        
+        if (response.status === 401) {
+          alert("Invalid Discord bot token. Please check and try again.");
+        } else if (response.status === 400) {
+          alert("Bot already running with this token.");
+        } else {
+          alert("Something went wrong: " + (errorData.message || "Please try again"));
+        }
       }
     } catch (error) {
       console.error("Unexpected error during platform connection:", error);
+      alert("Unexpected error. Please try again.");
     }
   };
-  
+    
   const selectedPlatform = PLATFORMS.find(p => p.id === formData.platform);
 
   return (
@@ -118,7 +134,8 @@ const ConnectPlatform: React.FC<ConnectPlatformProps> = ({ onSave, onCancel}) =>
         <Button
           type="submit"
           className="w-full bg-indigo-600 hover:bg-indigo-700"
-          disabled={!formData.platform}
+          disabled={isSubmitting || !formData.platform}
+
         >
           Connect Platform
         </Button>

@@ -119,7 +119,7 @@ export default function Home() {
               <path d="M9 13v2" />
             </svg>
           </div>
-          <h1 className="font-bold text-lg">ChatBot Builder</h1>
+          <h1 className="font-bold text-lg">Connect-AI</h1>
         </div>
 
         <div className="mt-6 flex flex-col">
@@ -221,7 +221,7 @@ export default function Home() {
                       <path d="M9 13v2" />
                     </svg>
                   </div>
-                  <span className="font-medium text-lg">Teacher</span>
+                  <span className="font-medium text-lg">AI Assistant</span>
                 </div>
 
                 <div className="flex gap-3">

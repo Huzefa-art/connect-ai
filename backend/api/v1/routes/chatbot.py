@@ -3,7 +3,7 @@ from fastapi import APIRouter, UploadFile, File, Form,Request,HTTPException
 import logging
 
 from fastapi.responses import JSONResponse
-from backend.schemas.chatbot import chatbotdata, ConntectPlatformData, WorkflowPayload,AIModel
+from backend.schemas.chatbot import chatbotdata, ConnectPlatformData, WorkflowPayload,AIModel
 import json
 import getpass
 import os
@@ -12,6 +12,7 @@ import hashlib
 from langchain.chat_models import init_chat_model
 from langchain_openai import OpenAIEmbeddings
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_openai import ChatOpenAI
 
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_community.document_loaders import PyPDFLoader
@@ -25,11 +26,16 @@ from langchain_ollama.llms import OllamaLLM
 from typing import Dict, List, Tuple, Any
 from langchain.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_core.runnables import RunnableLambda
+import discord
 
 import asyncio
 
 load_dotenv()
-# api_key = os.getenv("OPENAI_API_KEY")
+# os.environ["OPENAI_API_KEY"] = "<YOUR_AIMLAPI_KEY>"
+# os.environ["OPENAI_API_BASE"] = "https://api.aimlapi.com/v1" 
+# openai_api_key = os.getenv("OPENAI_API_KEY")
+# openai_base = os.getenv("OPENAI_API_BASE")
+
 # if not api_key:
 #     raise ValueError("OPENAI_API_KEY not found in environment variables")
 
@@ -66,14 +72,26 @@ Question: {question}
 Context: {context}
 Answer:
 """
+running_platforms = {}
+start_Platform = None
+
+@router.on_event("shutdown")
+async def shutdown_event():
+    global running_platforms
+    print("running_platforms",running_platforms)
+    for token, client in running_platforms.items():
+        await client.close()
+        print("Shutting down bots...",running_platforms)
+    running_platforms.clear()
+
 @router.on_event("startup")
 async def startup_event():
-    global available_llms, embeddings, vectorstore, reasoning
+    global embeddings, vectorstore, reasoning
 
     logger.info("Starting the FastAPI application...")
 
     logger.info("Initializing language models...")
-    available_llms = ["qwen2.5:0.5b","deepseek-r1:1.5b"]
+    # available_llms = ["qwen2.5:0.5b","deepseek-r1:1.5b"]
     # llm = init_chat_model("gpt-4o-mini", model_provider="openai")
     # model_names = ["deepseek-r1:1.5b","qwen2.5:0.5b"]
     # using_model = model_names[1]
@@ -81,16 +99,17 @@ async def startup_event():
     # if "deepseek" in using_model:
     #     reasoning = True
 
-    logger.info("Loading HuggingFace embeddings model...")
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-mpnet-base-v2",
-        model_kwargs={"device": "cuda"},
-        encode_kwargs={"normalize_embeddings": False},
-    )
+    # logger.info("Loading HuggingFace embeddings model...")
+    # embeddings = HuggingFaceEmbeddings(
+    #     model_name="sentence-transformers/all-mpnet-base-v2",
+    #     model_kwargs={"device": "cuda"},
+    #     encode_kwargs={"normalize_embeddings": False},
+    # )
 
-    # logger.info("Initializing InMemory vector store...")
-    vectorstore = InMemoryVectorStore.from_documents([], embeddings)
+    # # logger.info("Initializing InMemory vector store...")
+    # vectorstore = InMemoryVectorStore.from_documents([], embeddings)
     logger.info("FastAPI application started and services are initialized.")
+
 # def set_llm(provider,modelname):
 #     if provider == "OllamaLLM":
         
@@ -158,10 +177,21 @@ def build_prompt(system_prompt,is_rag):
         SystemMessagePromptTemplate.from_template(system_prompt),
         HumanMessagePromptTemplate.from_template("{question}")
     ])
+
+
 def build_llm(name, provider):
-    if provider == "OllamaLLM":
+    print("llm name",name,provider)
+    if provider.lower() == "ollamallm":
         return OllamaLLM(model=name)
-    ## defualt
+    if provider.lower() == "openai" or provider.lower() =="anthropic" or provider.lower() or provider.lower() :
+        llm = ChatOpenAI(
+        model_name=name,            
+        temperature=0.0,               
+        openai_api_base=os.environ["OPENAI_API_BASE"],  
+        openai_api_key=os.environ["OPENAI_API_KEY"])
+    
+        return llm
+
     
 def build_retriever(doc_name):
     global vectorstore
@@ -176,21 +206,72 @@ def build_retriever(doc_name):
             "question": RunnablePassthrough()
         }
     )
-def platform_setup(workflow_config):
+async def validate_discord_token(token: str):
+    # Try to login and logout immediately to validate token
+    intents = discord.Intents.none()
+    test_client = discord.Client(intents=intents)
+    try:
+        await test_client.login(token)
+    except discord.LoginFailure:
+        raise HTTPException(status_code=401, detail="Invalid bot token")
+    finally:
+        await test_client.close()
 
-    platform_names = [name for (_, name, *_ ) in workflow_config["platform"]]
+def setup_discord_listener(token: str):
+    
+    global running_platforms, discord_client
 
-    if "WhatsApp" in platform_names:
-        setup_whatsapp_webhook()
+    intents = discord.Intents.default()
+    intents.message_content = True
+    discord_client = discord.Client(intents=intents)
 
-    # if "Telegram" in platform_names:
-    #     setup_telegram_bot()
+    @discord_client.event
+    async def on_ready():
+        print(f'Bot logged in as {discord_client.user}')
 
-    # if "Discord" in platform_names:
-    #     setup_discord_listener()
+    @discord_client.event
+    async def on_message(message):
+        if message.author == discord_client.user:
+            return
+
+        print(f"Received: {message.author}: {message.content}")
+
+        # Create input model manually
+        data = chatbotdata(msg=message.content)
+
+        # Call the FastAPI logic directly
+        result = await get_response(data)
+        print(result)
+
+        await message.channel.send(result["response"])
+
+    async def start_bot():
+        try:
+            await discord_client.start(token)
+        except discord.LoginFailure:
+            print("Bot failed to start: invalid token.")
+
+    # Start bot in background
+    asyncio.create_task(start_bot())
+
+    # Store the client
+    running_platforms[token] = discord_client
+
+# def platform_setup(workflow_config):
+
+#     platform_names = [name for (_, name, *_ ) in workflow_config["platform"]]
+
+#     # if "WhatsApp" in platform_names:
+#     #     setup_whatsapp_webhook()
+
+#     # if "Telegram" in platform_names:
+#     #     setup_telegram_bot()
+
+#     if "Discord" in platform_names:
+#         setup_discord_listener()
 
 def build_chain_from_config(workflow_config):
-
+    global start_Platform
 
     # Build a lookup for all node types (AI, document, etc.)
     node_lookup = {}
@@ -206,8 +287,9 @@ def build_chain_from_config(workflow_config):
 
     # Start from platform node
     start_node_id = workflow_config["platform"][0][0]
+    start_Platform = start_node_id
     next_node_id = workflow_config["platform"][0][-1]
-
+    print("MY start Node id",start_node_id)
     print("---- node_lookup:", node_lookup)
     print("---- starting from:", next_node_id)
 
@@ -379,8 +461,7 @@ def load_docs(question: str):
 @router.post("/get_response")
 async def get_response(data: chatbotdata):
     global chain
-
-    
+            
     # user_question = {"question":data.msg}
 
     return {"response": chain.invoke({ "question": data.msg })}
@@ -486,14 +567,32 @@ async def save_ai_model(model: AIModel):
     return {"message": "AI Model saved successfully", "model": model}
 
 
-@router.post("/connect-platform")
-async def connect_platform(data: ConntectPlatformData):
-    print("Received platform connection data:", data)
-    print(type(data.webhook_url))
-    response_data = {
-        "platform": data.platform,
-        "api_key": data.api_key,
-        "webhook_url": data.webhook_url  
-    }
+# @router.post("/connect-platform")
+# async def connect_platform(data: ConntectPlatformData):
+#     print("Received platform connection data:", data)
+#     print(type(data.webhook_url))
+#     setup_discord_listener(data.api_key)
+#     response_data = {
+#         "platform": data.platform,
+#         "api_key": data.api_key,
+#         "webhook_url": data.webhook_url  
+#     }
 
-    return JSONResponse(content={"message": "Platform connected successfully!", "data": response_data})
+#     return JSONResponse(content={"message": "Platform connected successfully!", "data": response_data})
+@router.post("/connect-platform")
+async def connect_platform(data: ConnectPlatformData):
+    global running_platforms
+
+    if data.api_key in running_platforms:
+        return JSONResponse(content={"message": "Bot already running with this token"}, status_code=400)
+
+    # First validate the token
+    await validate_discord_token(data.api_key)
+
+    # If valid, set up listener
+    setup_discord_listener(data.api_key)
+
+    return JSONResponse(content={
+        "message": "Bot connected and listening!",
+        "data": data.dict()
+    })

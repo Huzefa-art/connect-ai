@@ -31,7 +31,7 @@ class AIModel(BaseModel):
     apiKey: str
     promptTemplate: str
 
-class ConntectPlatformData(BaseModel):
+class ConnectPlatformData(BaseModel):
     platform: str
     api_key: str
     webhook_url: str

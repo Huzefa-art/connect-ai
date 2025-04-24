@@ -234,6 +234,8 @@ const WorkflowFlow: React.FC<WorkflowFlowProps> = ({ aiModels, platforms, upload
 
     try {
       // Make the API call with the payload
+      console.log("▶️ Sending to /connect-platform:", payload);
+
       const result = await fetchData("api/v1/set-workflow", "POST", payload);
   
       if (result) {
