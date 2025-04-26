@@ -1,5 +1,52 @@
+# -----------------------
+# FRONTEND (Next.js) stuff
+# -----------------------
+
+# dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+.vercel/
+
+# production
+build/
+
+# debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# env files
+.env*
+frontend/.env.local  # (if you have frontend envs separately)
+
+# -----------------------
+# BACKEND (Python) stuff
+# -----------------------
+
+# Python bytecode
 **/__pycache__/
+*.py[cod]
+
+# backend specific
+backend/.env
+
+# -----------------------
+# COMMON STUFF
+# -----------------------
+
+# Ignore app logs and misc
+app.log
 folder-structure.txt
 text.txt
-app.log
+
+# VS Code settings (optional but good)
+.vscode/
 backend/api/v1/routes/__pycache__/chatbot.cpython-312.pyc
