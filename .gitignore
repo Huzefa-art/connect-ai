@@ -24,7 +24,6 @@ pnpm-debug.log*
 next-env.d.ts
 
 # env files
-.env*
 frontend/.env.local  # (if you have frontend envs separately)
 
 # -----------------------
@@ -50,3 +49,5 @@ text.txt
 # VS Code settings (optional but good)
 .vscode/
 backend/api/v1/routes/__pycache__/chatbot.cpython-312.pyc
+starting-cmds.txt
+config.bat
