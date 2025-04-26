@@ -50,3 +50,4 @@ text.txt
 # VS Code settings (optional but good)
 .vscode/
 backend/api/v1/routes/__pycache__/chatbot.cpython-312.pyc
+starting-cmds.txt
