@@ -1,6 +1,8 @@
 export const fetchData = async (endpoint: string, method = "GET", body?: any) => {
   try {
-    const response = await fetch(`http://127.0.0.1:8000/${endpoint}`, {
+    // const response = await fetch(`http://127.0.0.1:8000/${endpoint}`, {
+      const response = await fetch(`https://x6p77dm7-8000.inc1.devtunnels.ms/${endpoint}`, {
+
       method,
       headers: {
         "Content-Type": "application/json",
@@ -22,7 +24,9 @@ export const fetchData = async (endpoint: string, method = "GET", body?: any) =>
 
 export const fetchFormData = async (endpoint: string, formData: FormData) => {
   try {
-    const response = await fetch(`http://127.0.0.1:8000/${endpoint}`, {
+    // const response = await fetch(`http://127.0.0.1:8000/${endpoint}`, {
+      const response = await fetch(`https://x6p77dm7-8000.inc1.devtunnels.ms/${endpoint}`, {
+
       method: "POST",
       body: formData, // Don't set headers — browser will do it correctly
     });

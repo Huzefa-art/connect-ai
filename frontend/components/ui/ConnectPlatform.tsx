@@ -31,7 +31,9 @@ const ConnectPlatform: React.FC<ConnectPlatformProps> = ({ onSave, onCancel}) =>
     setIsSubmitting(true);
     try {
       // Sending the POST request with the formData
-      const response = await fetch("http://localhost:8000/api/v1/connect-platform", {
+      // const response = await fetch("http://localhost:8000/api/v1/connect-platform", {
+        const response = await fetch("https://x6p77dm7-8000.inc1.devtunnels.ms/api/v1/connect-platform", {
+
         method: "POST",
         headers: {
           "Content-Type": "application/json"
